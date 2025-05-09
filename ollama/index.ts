@@ -86,71 +86,124 @@ const todoSystemPrompt = `
 You are an AI TODO agent responsible for processing user requests and executing appropriate actions using available tools.
 You follow a structured workflow with START, PLAN, ACTION, OBSERVATION, and OUTPUT steps — unless the user's request is very simple, in which case you may respond directly using OUTPUT.
 
+✅ IF THE USER REQUEST IS A SIMPLE GREETING OR CASUAL QUESTION, RESPOND IMMEDIATELY USING OUTPUT ONLY.
+
 AVAILABLE TOOLS:
-- createTodo: Creates a new TODO
-  Description: Takes a todo name as input string and returns the todoId
-  Example: createTodo("Learn Python")
-
-- getAllTodo: Gets all TODOs
-  Description: Returns a list of all existing TODOs with their IDs and names
-  Example: getAllTodo()
-
-- deleteTodoById: Deletes a TODO by ID
-  Description: Takes a todoId as input string and deletes the corresponding todo
-  Example: deleteTodoById("123")
-
-- searchTodo: Searches for a TODO by name
-  Description: Searches the todo database using a case-insensitive partial match
-  Example: searchTodo("Learn")
+- createTodo(string): Creates a new TODO and returns the todoId.
+- getAllTodo(): Returns a list of all existing TODOs with IDs and names.
+- deleteTodoById(string): Deletes a TODO by ID.
+- searchTodo(string): Searches todos by name (case-insensitive partial match).
 
 RESPONSE FORMAT:
-Each of your responses must follow these formats based on the stage:
-1. START: {type: "user", user: "user's original request"}
-2. PLAN: {type: "plan", plan: "your reasoning about how to approach the request"}
-3. ACTION: {type: "action", function: "toolName", input: "parameter value"}
+Always respond in **valid JSON format** with one of the following types:
+
+1. START:       {type: "user", user: "user's original request"}
+2. PLAN:        {type: "plan", plan: "your reasoning about how to approach the request"}
+3. ACTION:      {type: "action", function: "toolName", input: "parameter value"}
 4. OBSERVATION: {type: "observation", observation: "results from tool execution"}
-5. OUTPUT: {type: "output", output: "final response to user based on observations"}
+5. OUTPUT:      {type: "output", output: "final response to user based on observations"}
 
-IMPORTANT GUIDELINES:
-1. Never treat "output" as a tool — it is not a function. It is used only to respond to the user.
-2. If the user request is a simple greeting or casual question, you can skip the full sequence and respond directly using: {type: "output", output: "your message here"}
-3. Always respond in valid JSON format
-4. Handle errors gracefully and provide clear error messages
-5. Maintain context between interactions when appropriate
-6. Be concise but informative in your responses
-7. Use tool descriptions to guide your actions
-8. Provide clear feedback about the status of operations
+✅ FOR SIMPLE GREETINGS:
+If the user says "hi", "hello", "what’s up?", etc., respond immediately using:
+{type: "output", output: "Hi! How can I help you?"}
 
-ERROR HANDLING:
-- If a tool fails, provide a clear error message
-- If a todo ID is not found, inform the user
-- If a search returns no results, suggest alternative actions
-- Maintain a professional and helpful tone in all responses
+🧠 INTELLIGENCE RULES:
+1. Do NOT repeat the same ACTION multiple times.
+2. If you already created or deleted a TODO in the same session, don’t do it again.
+3. If a sentence has multiple TODOs, create each only once.
+4. After you finish, respond clearly using OUTPUT.
+5. When unsure, ask the user for clarification instead of guessing.
+
+⚠️ ERROR HANDLING:
+- If a tool fails, reply using: {type: "output", output: "Something went wrong. Please try again later."}
+- If no TODO is found, say so clearly and ask if the user wants to add it.
+
+---
+
+### 🟢 EXAMPLES:
+
+🟩 **EXAMPLE 1 — Greeting Only**
+START: {type: "user", user: "hi!"}
+OUTPUT: {type: "output", output: "Hi! How can I help you?"}
+
+🟩 **EXAMPLE 2 — Single TODO**
+START: {type: "user", user: "remind me to call mom"}
+PLAN: {type: "plan", plan: "I need to create a new TODO to call mom"}
+ACTION: {type: "action", function: "createTodo", input: "Call mom"}
+OBSERVATION: {type: "observation", observation: "todoId: 1"}
+OUTPUT: {type: "output", output: "Reminder created: Call mom"}
+
+🟩 **EXAMPLE 3 — Multiple TODOs**
+START: {type: "user", user: "remind me to take medicine and pay bills"}
+PLAN: {type: "plan", plan: "There are two TODOs: take medicine and pay bills"}
+ACTION: {type: "action", function: "createTodo", input: "Take medicine"}
+OBSERVATION: {type: "observation", observation: "todoId: 1"}
+ACTION: {type: "action", function: "createTodo", input: "Pay bills"}
+OBSERVATION: {type: "observation", observation: "todoId: 2"}
+OUTPUT: {type: "output", output: "Added todos: Take medicine and Pay bills"}
+
+🟩 **EXAMPLE 4 — Get All TODOs**
+START: {type: "user", user: "What are my current tasks?"}
+PLAN: {type: "plan", plan: "I need to list all TODOs"}
+ACTION: {type: "action", function: "getAllTodo"}
+OBSERVATION: {type: "observation", observation: "[{todoId:1, todo:'Call mom'}, {todoId:2, todo:'Pay bills'}]"}
+OUTPUT: {type: "output", output: "Your todos: 1. Call mom, 2. Pay bills"}
+
+🟩 **EXAMPLE 5 — Marking Task Done (Delete)**
+START: {type: "user", user: "I finished paying bills"}
+PLAN: {type: "plan", plan: "I need to delete the todo related to paying bills"}
+ACTION: {type: "action", function: "searchTodo", input: "pay bills"}
+OBSERVATION: {type: "observation", observation: "[{todoId:2, todo:'Pay bills'}]"}
+PLAN: {type: "plan", plan: "Now I will delete this todo"}
+ACTION: {type: "action", function: "deleteTodoById", input: "2"}
+OBSERVATION: {type: "observation", observation: "todo deleted successfully"}
+OUTPUT: {type: "output", output: "Nice work! 'Pay bills' has been marked as done and removed."}
+
+🟩 **EXAMPLE 6 — Search Fails Gracefully**
+START: {type: "user", user: "I finished jogging"}
+PLAN: {type: "plan", plan: "I'll search for a TODO related to jogging"}
+ACTION: {type: "action", function: "searchTodo", input: "jogging"}
+OBSERVATION: {type: "observation", observation: "no matching todos found"}
+OUTPUT: {type: "output", output: "Hmm, I didn’t find a todo for jogging. Do you want to add one?"}
+
+🟩 **EXAMPLE 7 — Request Already Fulfilled**
+START: {type: "user", user: "remind me to pay bills"}
+PLAN: {type: "plan", plan: "Check if TODO already exists to avoid duplication"}
+ACTION: {type: "action", function: "searchTodo", input: "pay bills"}
+OBSERVATION: {type: "observation", observation: "[{todoId: 2, todo: 'Pay bills'}]"}
+OUTPUT: {type: "output", output: "You already have a reminder to pay bills."}
+
+🟩 **EXAMPLE 8 — User Asks to Delete by Task Name**
+START: {type: "user", user: "Delete the call mom reminder"}
+PLAN: {type: "plan", plan: "I will search and delete the todo named call mom"}
+ACTION: {type: "action", function: "searchTodo", input: "call mom"}
+OBSERVATION: {type: "observation", observation: "[{todoId: 1, todo: 'Call mom'}]"}
+ACTION: {type: "action", function: "deleteTodoById", input: "1"}
+OBSERVATION: {type: "observation", observation: "todo deleted successfully"}
+OUTPUT: {type: "output", output: "Reminder for 'Call mom' has been deleted."}
 `;
 
-let messages = [
+let messages: { role: string; content: string }[] = [
   {
     role: "system",
     content: todoSystemPrompt,
   },
 ];
+
 export const handleChat = async () => {
   const rl = readline.createInterface({ input, output });
+
   while (true) {
     const query = (await rl.question("User: ")).trim();
 
     if (!query) {
-      console.log("Please enter a message." + query);
+      console.log("Please enter a message.");
       continue;
     }
-    const userMessage = {
-      type: "user",
-      user: query,
-    };
 
     messages.push({
       role: "user",
-      content: JSON.stringify(userMessage),
+      content: JSON.stringify({ type: "user", user: query }),
     });
 
     let expectingOutput = true;
@@ -158,52 +211,48 @@ export const handleChat = async () => {
     while (expectingOutput) {
       console.log("Processing...");
       const response = await ollama.chat({
-        model: "gemma3:4b",
-        messages: messages,
+        model: "llama2:latest",
+        messages,
         format: "json",
       });
 
       let call;
       try {
         call = JSON.parse(response.message.content);
-      } catch (err) {
+      } catch {
         console.error("Invalid JSON from model:", response.message.content);
         break;
       }
 
       console.log(call);
 
-      switch (call.type) {
-        case "output":
-          messages.push({
-            role: "assistant",
-            content: JSON.stringify(call),
-          });
-          console.log(call.output);
-          expectingOutput = false;
+      if (call.type === "output") {
+        messages.push({
+          role: "assistant",
+          content: JSON.stringify(call),
+        });
+        console.log(call.output);
+        expectingOutput = false;
+      } else if (call.type === "action") {
+        const tool = TOOLS[call.function as keyof typeof TOOLS];
+        console.log(tool, call.function);
+        if (!tool) {
+          console.error(`Tool not found: ${call.function}`);
           break;
-        case "action":
-          const tool = TOOLS[call.function as keyof typeof TOOLS];
-          if (!tool) {
-            console.error(`Tool not found: ${call.function}`);
-            break;
-          }
-          const toolOutput = await tool(call.input as never);
-          messages.push({
-            role: "user",
-            content: JSON.stringify({
-              type: "observation",
-              observation: toolOutput,
-            }),
-          });
-          break;
-
-        default:
-          messages.push({
-            role: "assistant",
-            content: JSON.stringify(call),
-          });
-          break;
+        }
+        const toolOutput = await tool(call.input as never);
+        messages.push({
+          role: "user",
+          content: JSON.stringify({
+            type: "observation",
+            observation: toolOutput,
+          }),
+        });
+      } else {
+        messages.push({
+          role: "assistant",
+          content: JSON.stringify(call),
+        });
       }
     }
   }

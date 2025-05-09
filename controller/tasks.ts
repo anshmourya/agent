@@ -36,6 +36,7 @@ export const deleteTodoById = async (id: number) => {
     await db.delete(task).where(eq(task.id, id));
     return "Todo deleted successfully";
   } catch (error) {
+    console.log(error);
     throw error;
   }
 };
