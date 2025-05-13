@@ -211,7 +211,7 @@ export const handleChat = async () => {
     while (expectingOutput) {
       console.log("Processing...");
       const response = await ollama.chat({
-        model: "llama2:latest",
+        model: "deepseek-r1:7b",
         messages,
         format: "json",
       });

@@ -1,10 +1,15 @@
 import "dotenv/config";
 import express, { Express, Request, Response } from "express";
 import { handleChat } from "./ollama";
+import { scrappingAndAddToVectorStore } from "./scrapping";
 
 const app: Express = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT ?? 3000;
 
+//search for software engineer jobs
+scrappingAndAddToVectorStore("https://www.piyushgarg.dev").then((res) => {
+  console.log(res);
+});
 // app.use(express.json());
 
 // app.get("/", (req: Request, res: Response) => {
@@ -14,5 +19,3 @@ const port = process.env.PORT || 3000;
 // app.listen(port, () => {
 //   console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
 // });
-
-handleChat();
