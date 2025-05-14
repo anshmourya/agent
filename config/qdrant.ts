@@ -1,8 +1,10 @@
-import { QdrantClient } from "@qdrant/js-client-rest";
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { TokenTextSplitter } from "@langchain/textsplitters";
 import { HtmlToTextTransformer } from "@langchain/community/document_transformers/html_to_text";
+import { RetrievalQAChain, loadQAMapReduceChain } from "langchain/chains";
+import { ChatOllama } from "@langchain/ollama";
+import { console } from "inspector";
 const embeddings = new OllamaEmbeddings({
   model: "mxbai-embed-large",
   baseUrl: "localhost",
@@ -17,10 +19,10 @@ const splitter = new TokenTextSplitter({
 const transformer = new HtmlToTextTransformer();
 const sequence = splitter.pipe(transformer);
 
-const client = new QdrantClient({
+const vectorStore = new QdrantVectorStore(embeddings, {
+  collectionName: "web_content",
   url: process.env.QDRANT_URL,
   apiKey: process.env.QDRANT_API_KEY,
-  checkCompatibility: false,
 });
 
 //create embeddings
@@ -53,10 +55,8 @@ const addDocumentToVectorStore = async (
       },
     ]);
 
-    await QdrantVectorStore.fromExistingCollection(embeddings, {
-      client,
-      collectionName: "web_content",
-    });
+    await vectorStore.addDocuments(documents);
+
     console.log("Document added to vector store");
     return "Document added to vector store";
   } catch (error) {
@@ -65,4 +65,24 @@ const addDocumentToVectorStore = async (
   }
 };
 
-export { embeddings, createEmbeddings, addDocumentToVectorStore };
+const SYSTEM_PROMPT =
+  "You are a helpful assistant who can answer questions about the web content from the given documents make sure to answer in a concise and accurate manner use bullet points to make the answer easy to read and make sure to answer in a professional manner.";
+
+//search document
+const searchDocument = async (query: string) => {
+  try {
+    const llm = new ChatOllama({
+      model: "mistral:latest",
+      baseUrl: "localhost",
+    });
+  } catch (error) {
+    console.log("Error in searchDocument:", error);
+    throw error;
+  }
+};
+export {
+  embeddings,
+  createEmbeddings,
+  addDocumentToVectorStore,
+  searchDocument,
+};

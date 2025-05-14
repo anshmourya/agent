@@ -33,8 +33,8 @@ const extractLinks = async (
 
 const extractData = async (html: string) => {
   const $ = cheerio.load(html);
-  const body = $("body").html();
-  const head = $("head").html();
+  const body = $("body").text();
+  const head = $("head").text();
   const { internalLink, externalLink } = await extractLinks(html);
   return {
     body,
@@ -47,7 +47,7 @@ const extractData = async (html: string) => {
 export const scrappingAndAddToVectorStore = async (url: string) => {
   const { data } = await axios.get(url);
   const { body, head, internalLink, externalLink } = await extractData(data);
-  await addDocumentToVectorStore(body!, url);
+  // await addDocumentToVectorStore(body!, url);
 
   //Scraping internal links
   const internalLinkData = await Promise.all(
@@ -58,7 +58,8 @@ export const scrappingAndAddToVectorStore = async (url: string) => {
         const { body, head, internalLink, externalLink } = await extractData(
           data
         );
-        await addDocumentToVectorStore(body!, uri);
+        console.log(body);
+        // await addDocumentToVectorStore(body!, uri);
         return {
           body,
           head,
